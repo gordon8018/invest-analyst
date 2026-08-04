@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{COMPANY}} ({{CODE}}) 深度投研分析报告</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<!-- ============================================================
+  研报 HTML 模板 v2（标准输出格式 · 样式参考「一个无用的读书人」）
+  ─────────────────────────────────────────────────────────────
+  固定结构（11 节 + TL;DR + 3 张图表），生成时只替换数据：
+
+  · 头部 KPI 卡（6 张）            · 第 5 节 AI 战略 = 投入端/产品矩阵/变现端 + 一句话总结
+  · TL;DR 结论先行（米黄块）       · 第 6 节 估值 = 三维定位表 + PE历史位置条 + 机构评级 + 股价已包含什么
+  · 第 2 节 财务全景 = 组合图 + 年度表 + 最新季度指标表   · 第 7 节 十大股东 + 股权变化解读
+  · 第 3 节 业务结构 = 饼图 + 分部表                      · 第 8-11 节 OEQ/逻辑/风险/结论
+  · 第 4 节 股价复盘 = 月K走势图 + 权重归因
+
+  图表（Chart.js，均内置）：
+  · #finChart  财务组合图（营收+净利柱 + 毛利率折线，双Y轴）
+  · #segChart  业务结构 doughnut 饼图
+  · #kChart    月收盘价折线图
+  数据占位符：{{FIN_LABELS}}/{{FIN_REV}}/{{FIN_NP}}/{{FIN_GM}}
+              {{SEG_LABELS}}/{{SEG_DATA}}
+              {{PRICE_LABELS}}/{{PRICE_DATA}}
+
+  样式规范（勿偏离）：
+  · 深蓝标题栏 #1050b0（白字）· 页面底 #f0f0ed · TL;DR 米黄 #faf3d8
+  · 涨=红 #e33e33 / 跌=绿 #159a63（中国惯例）· 表头 #ececec
+  · 数字用 class="num" · 来源标注用 class="mini"
+============================================================ -->
+<style>
+  :root{
+    --up:#e33e33; --up-bg:#fdecec;
+    --down:#159a63; --down-bg:#eaf7f1;
+    --ink:#1c2433; --ink-2:#5c6570; --ink-3:#8f97a3;
+    --line:#e3e3dd; --card:#ffffff; --page:#f0f0ed;
+    --accent:#1050b0; --accent-bg:#e8eef8;
+    --tldr:#faf3d8; --tldr-line:#d9c47e;
+    --radius:10px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;background:var(--page);color:var(--ink);line-height:1.65;font-size:14px}
+  .page{max-width:1080px;margin:0 auto;padding:0 20px 60px}
+  header{background:var(--accent)}
+  .head-inner{max-width:1080px;margin:0 auto;padding:26px 20px 20px}
+  .ticker{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .ticker h1{font-size:24px;font-weight:700;letter-spacing:.5px;color:#fff}
+  .badge{font-size:12px;color:#fff;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);padding:2px 10px;border-radius:20px;font-weight:500}
+  .sub{color:rgba(255,255,255,.88);font-size:13px;margin-top:6px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:22px}
+  .kpi{background:#fafaf4;border:1px solid var(--line);border-radius:var(--radius);padding:14px 16px}
+  .kpi .lbl{font-size:12px;color:var(--ink-3);margin-bottom:4px}
+  .kpi .val{font-size:22px;font-weight:700}
+  .kpi .note{font-size:11px;color:var(--ink-3);margin-top:2px}
+  .up{color:var(--up)} .down{color:var(--down)}
+  .up-pill{display:inline-block;background:var(--up-bg);color:var(--up);padding:1px 8px;border-radius:6px;font-weight:600;font-size:12px}
+  .down-pill{display:inline-block;background:var(--down-bg);color:var(--down);padding:1px 8px;border-radius:6px;font-weight:600;font-size:12px}
+  .tl{background:var(--tldr);border:1px solid var(--tldr-line);border-left:5px solid var(--accent);border-radius:var(--radius);padding:18px 22px;margin:28px 0}
+  .tl h2{font-size:15px;color:var(--accent);margin-bottom:10px;font-weight:700}
+  .tl p{font-size:13.5px;color:#4a3d18;margin-bottom:8px}
+  .tl .essence{font-size:15px;font-weight:700;color:#5c3d00}
+  section{margin-top:40px}
+  .sec-title{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+  .sec-title .no{background:var(--accent);color:#fff;width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0}
+  .sec-title h2{font-size:18px;font-weight:700}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;margin-bottom:14px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{background:#ececec;color:var(--ink-2);text-align:left;padding:9px 12px;font-weight:600;white-space:nowrap}
+  td{padding:9px 12px;border-top:1px solid var(--line);vertical-align:top}
+  tr:hover td{background:#fafaf6}
+  .num{font-variant-numeric:tabular-nums;font-weight:600}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr}}
+  .logic{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:12px}
+  .logic h3{font-size:14.5px;font-weight:700;margin-bottom:6px}
+  .logic .priced{font-size:11.5px;margin-top:8px;padding:3px 10px;border-radius:20px;display:inline-block;font-weight:600}
+  .priced-part{background:var(--accent-bg);color:var(--accent)}
+  .priced-low{background:var(--tldr);color:#8a6a10}
+  .priced-full{background:#eef0f2;color:var(--ink-2)}
+  .oeq{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+  @media(max-width:900px){.oeq{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}}
+  .oeq-item{border-radius:var(--radius);border:1px solid var(--line);padding:14px 12px;text-align:center;background:var(--card)}
+  .oeq-item .f{font-size:12px;color:var(--ink-2);font-weight:600}
+  .oeq-item .v{font-size:20px;font-weight:700;margin:6px 0 2px}
+  .oeq-item .s{font-size:12px;font-weight:600}
+  .tag-green{border-top:3px solid #159a63}.tag-green .s{color:#0f6e56}
+  .tag-amber{border-top:3px solid #d9c47e}.tag-amber .s{color:#8a6a10}
+  .warn{background:#faf3e8;border:1px solid #e6cf9e;border-radius:var(--radius);padding:16px 18px;margin-top:14px}
+  .warn h4{font-size:14px;color:#8a4a1d;margin-bottom:8px}
+  .warn p{font-size:13px;color:#5c4a3a}
+  .foot{color:var(--ink-3);font-size:11.5px;margin-top:36px;padding-top:16px;border-top:1px solid var(--line)}
+  .chart-box{position:relative;height:320px;margin-top:8px}
+  .chart-box-sm{position:relative;height:260px;margin-top:8px}
+  ul.clean{list-style:none;margin-top:6px}
+  ul.clean li{padding:5px 0 5px 22px;position:relative;font-size:13px}
+  ul.clean li::before{content:"";position:absolute;left:6px;top:12px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  .risk-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.risk-grid{grid-template-columns:1fr}}
+  .risk-box{border-radius:var(--radius);padding:16px 18px;border:1px solid var(--line)}
+  .risk-box h3{font-size:14px;margin-bottom:10px}
+  .risk-short{background:#fdf3f3;border-color:#f0d6d6}.risk-short h3{color:#a32d2d}
+  .risk-mid{background:#f2f6fd;border-color:#d5e0f4}.risk-mid h3{color:#1050b0}
+  .vs-table td:first-child{background:#fbf3f3;color:#7a3030;font-weight:600;width:38%}
+  .vs-table td:last-child{background:#eef7f3;color:#14573f}
+  .mini{font-size:11.5px;color:var(--ink-3);margin-top:10px}
+  .pe-band{position:relative;height:86px;margin:26px 6px 10px;border-left:2px solid var(--ink-3);border-right:2px solid var(--ink-3);background:linear-gradient(to right,#f4f6f8 0%,#eef2f8 42%,#fdf3e7 45%,#fdf3e7 100%)}
+  .pe-band .tick{position:absolute;bottom:-22px;font-size:10.5px;color:var(--ink-3);transform:translateX(-50%)}
+  .pe-mark{position:absolute;top:-14px;transform:translateX(-50%);text-align:center;font-size:11px;font-weight:700;color:var(--up);white-space:nowrap}
+  .pe-mark::after{content:"";display:block;width:2px;height:34px;background:var(--up);margin:3px auto 0}
+  .pe-range{position:absolute;top:20px;height:26px;background:rgba(16,80,176,.12);border:1px dashed var(--accent);border-radius:4px}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;font-size:12px;color:var(--ink-2)}
+  .legend span{display:flex;align-items:center;gap:5px}
+  .legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+</style>
+</head>
+<body>
+<header>
+  <div class="head-inner">
+    <div class="ticker">
+      <h1>{{COMPANY}}</h1><span class="badge">{{CODE}}</span><span class="badge">{{MARKET_TAG}}</span>
+    </div>
+    <div class="sub">深度投研分析报告 ｜ {{REPORT_DATE}} ｜ {{DATA_ASOF}} ｜ {{DATA_SOURCE}}</div>
+    <!-- KPI 卡：6 张 = 最新价(涨跌pill)/总市值/PE/PB/股息率/年内涨跌 -->
+    <div class="kpis">{{KPI_CARDS}}</div>
+  </div>
+</header>
+
+<div class="page">
+
+<div class="tl">
+  <h2>结论先行 (TL;DR)</h2>
+  <p class="essence">{{ESSENCE}}</p>
+  {{TLDR_BODY}}
+</div>
+
+<!-- ═══════════ 1. 行情速览 ═══════════ -->
+<section>
+  <div class="sec-title"><div class="no">1</div><h2>行情速览</h2></div>
+  <div class="card">
+    <table>
+      <tr><th>指标</th><th>数值</th><th>指标</th><th>数值</th></tr>
+      <!-- 填 5 行：最新价/昨收今开/量比换手/60日与YTD/52周区间 -->
+      {{Q1_TABLE}}
+    </table>
+    <p class="mini">{{Q1_NOTE}}</p>
+  </div>
+</section>
+
+<!-- ═══════════ 2. 财务全景 ═══════════ -->
+<section>
+  <div class="sec-title"><div class="no">2</div><h2>财务全景：{{FIN_TITLE}}</h2></div>
+  <div class="card">
+    <div class="chart-box"><canvas id="finChart" role="img" aria-label="多年营业收入、归母净利润与毛利率趋势图">财务趋势图</canvas></div>
+    <div class="legend">
+      <span><i style="background:#1050b0"></i>营业收入（{{FIN_UNIT}}）</span>
+      <span><i style="background:#e0a63c"></i>归母净利润（{{FIN_UNIT}}）</span>
+      <span><i style="background:#159a63"></i>毛利率（%，右轴）</span>
+    </div>
+    <!-- 年度数据表：财年/营收/YoY/净利/YoY/毛利率/经营溢利率/ROE；最新一期加粗 -->
+    <table style="margin-top:16px">{{FIN_TABLE}}</table>
+    <p class="mini">{{FIN_NOTE}}</p>
+  </div>
+  <div class="card">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:10px">最新季度指标（{{LATEST_Q}}）</h3>
+    <table>
+      <tr><th>指标</th><th>数值</th><th>说明</th></tr>
+      <!-- 4 行：营业收入/经营溢利/归母净利润/基本EPS（单季口径；由年度减累计推算时注明） -->
+      {{LATEST_Q_TABLE}}
+    </table>
+    <p class="mini">{{LATEST_Q_NOTE}}</p>
+  </div>
+</section>
+
+<!-- ═══════════ 3. 业务结构 ═══════════ -->
+<section>
+  <div class="sec-title"><div class="no">3</div><h2>业务结构：{{SEG_TITLE}}</h2></div>
+  <div class="grid2">
+    <div class="card" style="margin-bottom:0">
+      <h3 style="font-size:14px;font-weight:700;margin-bottom:4px">{{SEG_CHART_TITLE}}</h3>
+      <div class="chart-box-sm"><canvas id="segChart" role="img" aria-label="分部收入占比饼图">业务结构饼图</canvas></div>
+      <p class="mini">{{SEG_CHART_NOTE}}</p>
+    </div>
+    <div class="card" style="margin-bottom:0">
+      <!-- 分部表：分部/收入/占比/增速/角色定位 -->
+      <table>{{SEG_TABLE}}</table>
+      <p class="mini">{{SEG_NOTE}}</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 4. 股价复盘 ═══════════ -->
+<section>
+  <div class="sec-title"><div class="no">4</div><h2>股价复盘：{{PRICE_TITLE}}</h2></div>
+  <div class="card">
+    <div class="chart-box"><canvas id="kChart" role="img" aria-label="月收盘价走势图">月收盘价走势图</canvas></div>
+    <p class="mini">{{PRICE_NOTE}}</p>
+  </div>
+  <div class="card">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:8px">下跌/上涨归因（按影响权重排序）</h3>
+    <ul class="clean">{{ATTRIBUTION}}</ul>
+    <p class="mini" style="margin-top:10px">{{CATALYST}}</p>
+  </div>
+</section>
+
+<!-- ═══════════ 5. AI 战略深拆 ═══════════ -->
+<section>
+  <div class="sec-title"><div class="no">5</div><h2>核心战略深拆：{{AI_TITLE}}</h2></div>
+  <div class="card">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:10px">① 投入端分析（{{AI_PERIOD}}）</h3>
+    <!-- 投入表：项目/金额/同比/解读（研发、销售费用、减值、经营溢利等） -->
+    <table>{{AI_INPUT_TABLE}}</table>
+    <p class="mini">{{AI_INPUT_NOTE}}</p>
+  </div>
+  <div class="card">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:10px">② 产品矩阵与进展分析</h3>
+    <!-- 产品表：产品/最新进展/竞争位置 -->
+    <table>{{AI_PRODUCT_TABLE}}</table>
+  </div>
+  <div class="card">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:10px">③ 变现端分析：收入转化路径（正在发生）</h3>
+    <!-- 变现表：路径/现状/验证状态（已兑现/进行中/期权） -->
+    <table>{{AI_MONETIZE_TABLE}}</table>
+  </div>
+  <div class="warn">
+    <h4>一句话总结战略</h4>
+    <p>{{AI_SUMMARY}}</p>
+  </div>
+</section>
+
+<!-- ═══════════ 6. 估值 ═══════════ -->
+<section>
+  <div class="sec-title"><div class="no">6</div><h2>估值：{{VAL_TITLE}}</h2></div>
+  <div class="card">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:10px">估值三维定位</h3>
+    <!-- 估值表：维度/当前/判断（PE/PB/PS/股息率/剔除净现金后） -->
+    <table>{{VAL_TABLE}}</table>
+  </div>
+  <div class="card">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:4px">动态 PE 历史位置（示意区间）</h3>
+    <!-- PE 区间条：left=当前分位位置%，range=历史区间left%,width% -->
+    <div class="pe-band">
+      <div class="pe-range" style="left:{{PE_RANGE_LEFT}}%;width:{{PE_RANGE_WIDTH}}%"></div>
+      <div class="pe-mark" style="left:{{PE_MARK_LEFT}}%">当前 {{PE_CUR}}x<span style="color:var(--ink-2);font-weight:400">（{{PE_PCTILE}} 分位）</span></div>
+      <div class="tick" style="left:0">{{PE_LOW}}x</div>
+      <div class="tick" style="left:50%">{{PE_MID}}x</div>
+      <div class="tick" style="left:100%">{{PE_HIGH}}x</div>
+    </div>
+    <p class="mini">{{PE_NOTE}}</p>
+  </div>
+  <div class="card">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:10px">机构一致预期与评级（{{RATING_PERIOD}}）</h3>
+    <!-- 评级表：机构/日期/评级(涨用 up)/核心观点 -->
+    <table>{{RATING_TABLE}}</table>
+    <p class="mini">{{RATING_NOTE}}</p>
+  </div>
+  <div class="warn">
+    <h4>当前股价里已经包含了什么？</h4>
+    <p>{{PRICED_IN}}</p>
+  </div>
+</section>
+
+<!-- ═══════════ 7. 股东结构 ═══════════ -->
+<section>
+  <div class="sec-title"><div class="no">7</div><h2>股东结构与股东回报：{{SH_TITLE}}</h2></div>
+  <div class="card">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:10px">十大股东（{{SH_PERIOD}}）</h3>
+    <!-- 股东表：#/股东/持股/解读 -->
+    <table>{{SH_TABLE}}</table>
+  </div>
+  <div class="card">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:10px">关键信息解读：股权变化 + 筹码结构</h3>
+    <ul class="clean">{{SH_NOTES}}</ul>
+  </div>
+</section>
+
+<!-- ═══════════ 8. OEQ 框架 ═══════════ -->
+<section>
+  <div class="sec-title"><div class="no">8</div><h2>OEQ 框架评估</h2></div>
+  <div class="oeq">
+    <!-- 5 因子卡：ROE/现金回报率/moat/cont/dupont；评分用 tag-green 或 tag-amber -->
+    {{OEQ_CARDS}}
+  </div>
+  <div class="card" style="margin-top:14px">
+    <p style="font-size:13.5px">{{OEQ_SUMMARY}}</p>
+  </div>
+  <div class="warn">
+    <h4>反向检验（OEQ 第二问）</h4>
+    <p>{{OEQ_QUESTION}}</p>
+  </div>
+</section>
+
+<!-- ═══════════ 9. 投资逻辑与预期差 ═══════════ -->
+<section>
+  <div class="sec-title"><div class="no">9</div><h2>核心投资逻辑与预期差</h2></div>
+  <!-- 每条逻辑：.logic > h3 + p + .priced 标签（priced-part/priced-low/priced-full） -->
+  {{LOGICS}}
+  <div class="card">
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:10px">市场共识 vs 预期差</h3>
+    <table class="vs-table">
+      <tr><th style="background:#f4e9e9;color:#7a3030">市场共识（已定价）</th><th style="background:#e8f4ef;color:#14573f">预期差（未被定价）</th></tr>
+      {{VS_ROWS}}
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════ 10. 风险清单 ═══════════ -->
+<section>
+  <div class="sec-title"><div class="no">10</div><h2>风险清单（短期 / 中期分层）</h2></div>
+  <div class="risk-grid">
+    <div class="risk-box risk-short">
+      <h3>短期 (6-12 个月)</h3>
+      <ul class="clean">{{RISK_SHORT}}</ul>
+    </div>
+    <div class="risk-box risk-mid">
+      <h3>中期 (1-3 年)</h3>
+      <ul class="clean">{{RISK_MID}}</ul>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 11. 投资结论 ═══════════ -->
+<section>
+  <div class="sec-title"><div class="no">11</div><h2>投资结论</h2></div>
+  <div class="card">
+    <p style="font-size:14px;font-weight:700;margin-bottom:12px">{{CONCLUSION_ESSENCE}}</p>
+    <!-- 结论表：视角(短期/中期)/关键观察信号/结论 -->
+    <table>{{CONCLUSION_TABLE}}</table>
+  </div>
+  <div class="warn">
+    <h4>反向警示（对多头自己的拷问）</h4>
+    <p>{{CONCLUSION_WARN}}</p>
+  </div>
+</section>
+
+<div class="foot">
+  <p><b>免责声明：</b>以上内容基于公开数据和量化分析，仅供参考，不构成投资建议。市场有风险，投资需谨慎。任何投资决策应结合个人风险承受能力、资金状况和投资目标独立判断。</p>
+  <p style="margin-top:6px"><b>数据来源与口径说明：</b>{{FOOTNOTE}}</p>
+</div>
+
+</div>
+
+<script>
+new Chart(document.getElementById('finChart'), {
+  data: {
+    labels: [{{FIN_LABELS}}],
+    datasets: [
+      { type: 'bar', label: '营业收入', data: [{{FIN_REV}}], backgroundColor: '#1050b0', borderRadius: 3, yAxisID: 'y' },
+      { type: 'bar', label: '归母净利润', data: [{{FIN_NP}}], backgroundColor: '#e0a63c', borderRadius: 3, yAxisID: 'y' },
+      { type: 'line', label: '毛利率', data: [{{FIN_GM}}], borderColor: '#159a63', backgroundColor: 'rgba(21,154,99,.1)', fill: true, tension: .3, pointRadius: 3, yAxisID: 'y1' }
+    ]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { display: false } },
+      y: { position: 'left', grid: { color: 'rgba(0,0,0,.05)' }, ticks: { callback: v => v + '{{FIN_UNIT_SHORT}}' } },
+      y1: { position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%' } }
+    }
+  }
+});
+new Chart(document.getElementById('segChart'), {
+  type: 'doughnut',
+  data: {
+    labels: [{{SEG_LABELS}}],
+    datasets: [{ data: [{{SEG_DATA}}], backgroundColor: ['#1050b0','#d9c47e','#159a63','#e0a63c','#c9ced6'], borderWidth: 2, borderColor: '#ffffff' }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false, cutout: '58%',
+    plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 10, boxHeight: 10, padding: 10 } } }
+  }
+});
+new Chart(document.getElementById('kChart'), {
+  type: 'line',
+  data: {
+    labels: [{{PRICE_LABELS}}],
+    datasets: [{ label: '月收盘价', data: [{{PRICE_DATA}}], borderColor: '#1050b0', backgroundColor: 'rgba(16,80,176,0.08)', fill: true, tension: 0.25, pointRadius: 2.5, pointBackgroundColor: '#1050b0' }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+      y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 11 } } }
+    }
+  }
+});
+</script>
+</body>
+</html>
